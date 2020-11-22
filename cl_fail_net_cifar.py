@@ -5,13 +5,20 @@ import torch.nn.functional as F
 import torch.optim as optim
 import matplotlib.pyplot as plt
 import time
+import sys
+
+if len(sys.argv) > 1:
+    l2 = float(sys.argv[1])
+    print("l2 value: {}".format(l2))
+else:
+    l2 = 0
 
 n_epochs = 30
 batch_size_train = 64
 batch_size_test = 250
 learning_rate = 0.05
 momentum = 0.5
-l2 = 0.001
+#l2 = 0.001
 log_interval = 10 #? from tutorial
 
 if torch.cuda.is_available():
