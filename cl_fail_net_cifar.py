@@ -11,6 +11,7 @@ batch_size_train = 64
 batch_size_test = 250
 learning_rate = 0.05
 momentum = 0.5
+l2 = 0.001
 log_interval = 10 #? from tutorial
 
 if torch.cuda.is_available():
@@ -98,11 +99,13 @@ class Net(nn.Module):
 
 
 network = Net().to(device)
-optimizer = optim.SGD(network.parameters(), lr=learning_rate, momentum=momentum)
+optimizer = optim.SGD(network.parameters(), lr=learning_rate, momentum=momentum, weight_decay=l2)
 
 train_losses = []
+train_accs = []
 train_counter = []
 test_losses = []
+test_accs = []
 test_counter = [i*len(train_loader.dataset) for i in range(n_epochs + 1)]
 
 
@@ -121,6 +124,7 @@ def train(epoch):
                 epoch, batch_idx * len(data), len(train_loader.dataset),
                        100. * batch_idx / len(train_loader), loss.item()))
             train_losses.append(loss.item())
+            train_accs.append(100. * batch_idx / len(train_loader))
             train_counter.append(
                 (batch_idx * 64) + ((epoch - 1) * len(train_loader.dataset)))
             torch.save(network.state_dict(), './results/model.pth')
@@ -141,6 +145,7 @@ def test():
             correct += pred.eq(target.data.view_as(pred)).sum()
     test_loss /= len(test_loader.dataset)
     test_losses.append(test_loss)
+    test_accs.append(float(100. * correct / len(test_loader.dataset)))
     print('\nTest set: Avg. loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(
         test_loss, correct, len(test_loader.dataset),
         100. * correct / len(test_loader.dataset)))
@@ -161,9 +166,19 @@ for epoch in range(1, n_epochs+1):
 print("Runtime: {} seconds".format(round(time.time()-tstart, 2)))
 
 fig = plt.figure()
+#plt.plot(train_counter, train_accs, color='blue')
+plt.scatter(test_counter[0:len(test_losses)], test_accs, color='red')
+#plt.legend(['Training accuracy (%)', 'Testing accuracy (%)'], loc='upper right')
+plt.xlabel('number of training examples seen')
+plt.ylabel('Accuracy')
+#plt.show()
+plt.savefig("./results/acc_l2={}.png".format(l2))
+
+fig = plt.figure()
 plt.plot(train_counter, train_losses, color='blue')
 plt.scatter(test_counter[0:len(test_losses)], test_losses, color='red')
 plt.legend(['Train Loss', 'Test Loss'], loc='upper right')
 plt.xlabel('number of training examples seen')
 plt.ylabel('negative log likelihood loss')
-plt.show()
+#plt.show()
+plt.savefig("./results/loss_l2={}.png".format(l2))

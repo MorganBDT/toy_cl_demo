@@ -6,7 +6,7 @@ import torch.optim as optim
 import matplotlib.pyplot as plt
 import time
 
-n_epochs = 1
+n_epochs = 2
 batch_size_train = 64
 batch_size_test = 1000
 learning_rate = 0.01
@@ -88,8 +88,10 @@ network = Net().to(device)
 optimizer = optim.SGD(network.parameters(), lr=learning_rate, momentum=momentum)
 
 train_losses = []
+train_accs = []
 train_counter = []
 test_losses = []
+test_accs = []
 test_counter = [i*len(train_loader.dataset) for i in range(n_epochs + 1)]
 
 
@@ -108,6 +110,7 @@ def train(epoch):
                 epoch, batch_idx * len(data), len(train_loader.dataset),
                        100. * batch_idx / len(train_loader), loss.item()))
             train_losses.append(loss.item())
+            train_accs.append(100. * batch_idx / len(train_loader))
             train_counter.append(
                 (batch_idx * 64) + ((epoch - 1) * len(train_loader.dataset)))
             torch.save(network.state_dict(), './results/model.pth')
@@ -128,6 +131,7 @@ def test():
             correct += pred.eq(target.data.view_as(pred)).sum()
     test_loss /= len(test_loader.dataset)
     test_losses.append(test_loss)
+    test_accs.append(float(100. * correct / len(test_loader.dataset)))
     print('\nTest set: Avg. loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(
         test_loss, correct, len(test_loader.dataset),
         100. * correct / len(test_loader.dataset)))
@@ -139,3 +143,19 @@ for epoch in range(1, n_epochs+1):
     train(epoch)
     test()
 print("Runtime: {} seconds".format(round(time.time()-tstart, 2)))
+
+# fig = plt.figure()
+# #plt.plot(train_counter, train_accs, color='blue')
+# plt.scatter(test_counter[0:len(test_losses)], test_accs, color='red')
+# #plt.legend(['Training accuracy (%)', 'Testing accuracy (%)'], loc='upper right')
+# plt.xlabel('number of training examples seen')
+# plt.ylabel('Accuracy')
+# plt.show()
+#
+# fig = plt.figure()
+# plt.plot(train_counter, train_losses, color='blue')
+# plt.scatter(test_counter[0:len(test_losses)], test_losses, color='red')
+# plt.legend(['Train Loss', 'Test Loss'], loc='upper right')
+# plt.xlabel('number of training examples seen')
+# plt.ylabel('negative log likelihood loss')
+# plt.show()
