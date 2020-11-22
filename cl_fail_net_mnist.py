@@ -1,3 +1,4 @@
+import numpy as np
 import torch
 import torchvision
 import torch.nn as nn
@@ -6,12 +7,14 @@ import torch.optim as optim
 import matplotlib.pyplot as plt
 import time
 
-n_epochs = 2
+n_tasks = 20
+n_epochs = 5
 batch_size_train = 64
 batch_size_test = 1000
-learning_rate = 0.01
+learning_rate = 0.005
 momentum = 0.5
-log_interval = 10 #? from tutorial
+
+log_interval = 10
 
 if torch.cuda.is_available():
     device = torch.device("cuda:0")  # you can continue going on here, like cuda:1 cuda:2....etc.
@@ -21,8 +24,10 @@ else:
     device = torch.device("cpu")
     print("Running on the CPU")
 
-torch.manual_seed(1) # for tutorial
-torch.backends.cudnn.enabled = False # for tutorial
+# Make predictable random numbers for reproducibility
+torch.manual_seed(1)
+np.random.seed(0)
+torch.backends.cudnn.enabled = False  # for tutorial
 
 # TODO: look into num_workers > 1 parameter option to speed up data loading
 train_loader = torch.utils.data.DataLoader(
@@ -46,20 +51,23 @@ test_loader = torch.utils.data.DataLoader(
 examples = enumerate(train_loader)
 batch_idx, (example_data, example_targets) = next(examples)
 
-#print(batch_idx)
-#print(example_data.shape)
-#print(example_targets.shape)
+imgvec_size = 28*28
+perms = [np.identity(imgvec_size)]  # First permutation is identity
+for i in range(19):
+    perm = np.identity(imgvec_size)
+    np.random.shuffle(perm)
+    perms.append(perm)
 
-# Show first six examples in training set
-# fig = plt.figure()
-# for i in range(6):
-#     plt.subplot(2, 3, i+1)
-#     plt.tight_layout()
-#     plt.imshow(example_data[i][0], cmap='gray', interpolation='none')
-#     plt.title(int(example_targets[i]))
-#     plt.xticks([])
-#     plt.yticks([])
-# plt.show()
+
+def permute_image(img, perm_id):
+    return torch.from_numpy(np.reshape(
+        np.matmul(perms[perm_id], np.ravel(img.numpy())), img.shape))
+
+
+def permute_batch(batch, perm_id):
+    for im in range(batch.shape[0]):
+        batch[im] = permute_image(batch[im], perm_id)
+    return batch
 
 
 class Net(nn.Module):
@@ -84,7 +92,6 @@ class Net(nn.Module):
 
 
 network = Net().to(device)
-#network.cuda()
 optimizer = optim.SGD(network.parameters(), lr=learning_rate, momentum=momentum)
 
 train_losses = []
@@ -94,10 +101,10 @@ test_losses = []
 test_accs = []
 test_counter = [i*len(train_loader.dataset) for i in range(n_epochs + 1)]
 
-
-def train(epoch):
+def train(epoch, perm_id=0):
     network.train()
     for batch_idx, (data, target) in enumerate(train_loader):
+        data = permute_batch(data, perm_id)
         data = data.to(device)
         target = target.to(device)
         optimizer.zero_grad()
@@ -117,12 +124,13 @@ def train(epoch):
             torch.save(optimizer.state_dict(), './results/optimizer.pth')
 
 
-def test():
+def test(perm_id=0):
     network.eval()
     test_loss = 0
     correct = 0
     with torch.no_grad():
         for data, target in test_loader:
+            data = permute_batch(data, perm_id)
             data = data.to(device)
             target = target.to(device)
             output = network(data)
@@ -131,31 +139,61 @@ def test():
             correct += pred.eq(target.data.view_as(pred)).sum()
     test_loss /= len(test_loader.dataset)
     test_losses.append(test_loss)
-    test_accs.append(float(100. * correct / len(test_loader.dataset)))
+    test_acc = float(100. * correct / len(test_loader.dataset))
+    test_accs.append(test_acc)
     print('\nTest set: Avg. loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(
         test_loss, correct, len(test_loader.dataset),
         100. * correct / len(test_loader.dataset)))
+    return test_loss, test_acc
 
 
-test()
 tstart = time.time()
-for epoch in range(1, n_epochs+1):
-    train(epoch)
-    test()
+
+task1_accs = []
+avg_task_accs = []
+plt.figure()
+for t in range(n_tasks):
+    train_losses = []
+    train_accs = []
+    train_counter = []
+    test_losses = []
+    test_accs = []
+    test_counter = [i * len(train_loader.dataset) for i in range(n_epochs + 1)]
+    test(perm_id=t)
+    print("TASK {} TRAINING".format(t+1))
+    for epoch in range(1, n_epochs+1):
+        train(epoch, perm_id=t)
+        test(perm_id=t)
+
+    plt.subplot(5, 4, t+1)
+    plt.plot(train_counter, train_losses, color='blue')
+    plt.scatter(test_counter[0:len(test_losses)], test_losses, color='red')
+    plt.title("Task {}".format(t+1))
+
+    # Test on the first task the network was trained on
+    _, task1_acc = test(perm_id=0)
+    task1_accs.append(task1_acc)
+
+    # Test on all of the tasks that the network has been trained on so far, and take the average accuracy
+    tt_accs = []
+    for tt in range(t+1):
+        _, tt_acc = test(perm_id=tt)
+        tt_accs.append(tt_acc)
+    avg_task_accs.append(sum(tt_accs)/(t+1))
+
 print("Runtime: {} seconds".format(round(time.time()-tstart, 2)))
 
-# fig = plt.figure()
-# #plt.plot(train_counter, train_accs, color='blue')
-# plt.scatter(test_counter[0:len(test_losses)], test_accs, color='red')
-# #plt.legend(['Training accuracy (%)', 'Testing accuracy (%)'], loc='upper right')
-# plt.xlabel('number of training examples seen')
-# plt.ylabel('Accuracy')
-# plt.show()
-#
-# fig = plt.figure()
-# plt.plot(train_counter, train_losses, color='blue')
-# plt.scatter(test_counter[0:len(test_losses)], test_losses, color='red')
-# plt.legend(['Train Loss', 'Test Loss'], loc='upper right')
-# plt.xlabel('number of training examples seen')
-# plt.ylabel('negative log likelihood loss')
-# plt.show()
+plt.suptitle("Training graphs for each task. Blue line = training loss, red dots = test loss")
+plt.savefig("./results/mnist_cl_training.png")
+
+fig = plt.figure()
+x = list(range(1, n_tasks+1))
+plt.plot(x, task1_accs, color="red")
+plt.plot(x, avg_task_accs, color="blue")
+plt.legend(['1st task accuracy', 'Avg task accuracy'], loc='upper right')
+plt.xlabel("Task number")
+plt.xticks(x)
+plt.ylabel("Classification accuracy (%)")
+plt.savefig("./results/mnist_cl_eval.png")
+
+plt.show()
