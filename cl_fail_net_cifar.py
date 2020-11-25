@@ -13,7 +13,7 @@ if len(sys.argv) > 1:
 else:
     l2 = 0
 
-n_epochs = 25
+n_epochs = 35
 batch_size_train = 64
 batch_size_test = 250
 learning_rate = 0.05
@@ -91,19 +91,20 @@ class Net(nn.Module):
 
     def forward(self, x):
         x = F.relu(self.conv1(x))
-        x = self.conv1_drop(x)
+        #x = self.conv1_drop(x)
         x = F.relu(self.conv2(x))
         x = F.max_pool2d(x, 2)
 
         x = F.relu(self.conv3(x))
-        x = self.conv3_drop(x)
+        #x = self.conv3_drop(x)
         x = F.relu(self.conv4(x))
         x = F.max_pool2d(x, 2)
 
         x = F.relu(self.conv5(x))
-        x = self.conv5_drop(x)
+        #x = self.conv5_drop(x)
         x = F.relu(self.conv6(x))
         x = F.max_pool2d(x, 2)
+
         x = x.view(-1, 4096)
         x = self.fc1_drop(F.relu(self.fc1(x)))
         x = self.fc2(x)
