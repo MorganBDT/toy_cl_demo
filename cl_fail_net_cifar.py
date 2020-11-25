@@ -113,6 +113,13 @@ class Net(nn.Module):
 network = Net().to(device)
 optimizer = optim.SGD(network.parameters(), lr=learning_rate, momentum=momentum, weight_decay=l2)
 
+if len(sys.argv) > 2 and sys.argv[2] == "--continue":
+    network_state_dict = torch.load("model.pth")
+    network.load_state_dict(network_state_dict)
+
+    optimizer_state_dict = torch.load("optimizer.pth")
+    optimizer.load_state_dict(optimizer_state_dict)
+
 train_losses = []
 train_accs = []
 train_counter = []
