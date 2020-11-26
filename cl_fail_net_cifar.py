@@ -97,10 +97,9 @@ class Net(nn.Module):
         self.conv8 = nn.Conv2d(512, 1024, kernel_size=3, padding=1)
         self.conv8_bn = nn.BatchNorm2d(1024)
 
-        self.fc1 = nn.Linear(4096, 512)
-        self.fc2 = nn.Linear(512, 128)
+        self.fc1 = nn.Linear(4096, 128)
+        self.fc2 = nn.Linear(128, 10)
         #self.fc1_drop = nn.Dropout()
-        self.fc3 = nn.Linear(128, 10)
 
     def forward(self, x):
         x = F.relu(self.conv1_bn(self.conv1(x)))
@@ -125,9 +124,8 @@ class Net(nn.Module):
 
         x = x.view(-1, 4096)
         x = F.relu(self.fc1(x))
-        x = F.relu(self.fc2(x))
         #x = self.fc1_drop(x)
-        x = F.log_softmax(self.fc3(x))
+        x = F.log_softmax(self.fc2(x))
         return x
 
 
