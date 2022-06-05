@@ -14,4 +14,4 @@ module load cuda/10.2
 
 source activate /home/mbt10/.conda/envs/ml1
 
-python cl_fail_net_cifar.py
+python cl_fail_net_mnist.py
